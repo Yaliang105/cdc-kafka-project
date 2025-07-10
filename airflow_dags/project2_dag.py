@@ -97,29 +97,41 @@ with DAG(
         sql="""
         -- Valid Inserts
         INSERT INTO employees (first_name, last_name, dob, city, salary)
-        VALUES ('Alice', 'Johnson', '2012-04-10', 'San Francisco', 80000);
+        VALUES ('Alice', 'Johnson', '2012-04-10', 'San Francisco', 80000)
+        ON CONFLICT DO NOTHING;
+        SELECT pg_sleep(1);
 
         INSERT INTO employees (first_name, last_name, dob, city, salary)
-        VALUES ('Emma', 'Wood', '2015-07-01', 'Boston', 72000);
+        VALUES ('Emma', 'Wood', '2015-07-01', 'Boston', 72000)
+        ON CONFLICT DO NOTHING;
+        SELECT pg_sleep(1);
 
         -- Invalid Inserts (Should go to DLQ)
         INSERT INTO employees (first_name, last_name, dob, city, salary)
-        VALUES ('Too', 'Low', '2000-01-01', 'LA', 50);
+        VALUES ('Too', 'Low', '2000-01-01', 'LA', 50)
+        ON CONFLICT DO NOTHING;
+        SELECT pg_sleep(1);
 
         INSERT INTO employees (first_name, last_name, dob, city, salary)
-        VALUES ('Too', 'Old', '1900-01-01', 'San Jose', 50000);
+        VALUES ('Too', 'Old', '1900-01-01', 'San Jose', 50000)
+        ON CONFLICT DO NOTHING;
+        SELECT pg_sleep(1);
 
         INSERT INTO employees (emp_id, first_name, last_name, dob, city, salary)
-        VALUES (-100, 'Wrong', 'ID', '2000-01-01', 'Chicago', 45000);
+        VALUES (-100, 'Wrong', 'ID', '2000-01-01', 'Chicago', 45000)
+        ON CONFLICT DO NOTHING;
+        SELECT pg_sleep(1);
 
         -- Valid Update
         UPDATE employees
         SET city = 'San Francisco', salary = 75000
         WHERE emp_id = 1;
+        SELECT pg_sleep(1);
 
         -- Valid Delete
         DELETE FROM employees
         WHERE emp_id = 1;
+        SELECT pg_sleep(1);
         """
     )
 
