@@ -2,7 +2,12 @@ import json
 import psycopg2
 from confluent_kafka import Consumer
 from employee import Employee
-from producer import employee_topic_name  # Make sure this matches the producer
+from producer import employee_topic_name 
+from confluent_kafka import Producer  # Add this line to send to DLQ
+
+# ✅ DLQ Producer and Topic (GLOBAL—shared by all functions)
+dlq_producer = Producer({'bootstrap.servers': 'localhost:29092'})
+dlq_topic = 'bf_employee_cdc_dlq'
 
 class CDCConsumer(Consumer):
     def __init__(self, host="localhost", port="29092", group_id="cdc-group"):
@@ -40,6 +45,29 @@ def process_message(msg):
         action = str(employee.action).lower()
         # Extract timestamp from message
         last_updated_at = emp_data.get('last_updated_at', None)
+
+        # Rules for validation
+        dob_year = int(str(employee.emp_dob)[:4]) if employee.emp_dob else 0
+        invalid = False  # Flag to check if anything fails
+        if dob_year <= 2007:
+            print(f"⚠️ Invalid DOB for emp_id {employee.emp_id}: {employee.emp_dob} (must be after 2007)")
+            invalid = True
+        if employee.emp_salary <= 100:
+            print(f"⚠️ Invalid Salary for emp_id {employee.emp_id}: {employee.emp_salary} (must be > 100)")
+            invalid = True
+        if employee.emp_id < 0:
+            print(f"⚠️ Invalid emp_id: {employee.emp_id} (must be >= 0)")
+            invalid = True
+        if invalid:
+            # Send invalid message to DLQ
+            dlq_producer.produce(
+                topic=dlq_topic,
+                key=str(employee.emp_id),
+                value=json.dumps(emp_data)
+            )
+            dlq_producer.flush()
+            print(f"⚠️ Invalid data sent to DLQ for emp_id {employee.emp_id}")
+            return  # Skip further processing
 
         conn = psycopg2.connect(
             host="localhost",
