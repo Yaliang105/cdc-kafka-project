@@ -1,4 +1,42 @@
 services:
+  airflow:
+    image: custom-airflow:2.9.1
+    depends_on:
+      - db_source
+      - db_dst
+      - kafka
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@db_source:5432/employee_source
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=MY_SUPER_SECRET_KEY_123
+    volumes:
+      - ./airflow_dags:/opt/airflow/dags
+      - .:/opt/airflow/project2
+    ports:
+      - "8081:8080"
+    command: >
+      bash -c "
+      airflow db upgrade &&
+      airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email yaliang105@gmail.com &&
+      airflow webserver
+      "
+
+  airflow-scheduler:
+    image: custom-airflow:2.9.1
+    depends_on:
+      - airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@db_source:5432/employee_source
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=MY_SUPER_SECRET_KEY_123
+    volumes:
+      - ./airflow_dags:/opt/airflow/dags
+      - .:/opt/airflow/project2
+    command: >
+      bash -c "airflow db init && airflow scheduler"
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     environment:
@@ -30,12 +68,8 @@ services:
       bash -c "
         echo 'Waiting for Kafka...'
         sleep 10
-        
-        echo 'Creating topics...'
-        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1 --topic bf_employee_cdc
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic bf_employee_cdc
         kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic bf_employee_cdc_dlq
-        
-        echo 'Topics created!'
         kafka-topics --list --bootstrap-server kafka:9092
       "
     restart: "no"
@@ -60,7 +94,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=employee_dest
     ports:
-      - '5433:5432'
+      - '5433:5432'  # Host:Container mismatch fixed
     volumes:
       - pg_dest_data:/var/lib/postgresql/data
 
