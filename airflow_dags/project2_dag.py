@@ -14,6 +14,7 @@ with DAG(
     description='ETL: Source ➔ Kafka ➔ Destination using short-burst Producer & Consumer',
     schedule_interval=None,
     catchup=False,
+    max_active_runs=1,
 ) as dag:
 
     # Step 1: Create Source Tables with Trigger
